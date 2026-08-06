@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../ExcelFilesReader/ExcelFilesReader.csproj" />
+  <Project Path="WmsDesk.csproj" />
+</Solution>

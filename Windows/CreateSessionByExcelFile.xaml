@@ -1,0 +1,62 @@
+﻿<Window x:Class="WmsDesk.Windows.CreateSessionByExcelFile"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WmsDesk"
+        xmlns:excel="clr-namespace:WmsDesk.ViewModels"
+        mc:Ignorable="d"
+        Title="CreateSessionByExcelFile" 
+        Height="400" 
+        Width="350"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type local:AddingExcelFile}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.5*"/>
+                    <ColumnDefinition Width="0.5*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock 
+                    Grid.Column="0"
+                    Text="{Binding FieldName, Mode=TwoWay}"></TextBlock>
+                <ComboBox 
+                    Grid.Column="1"
+                    ItemsSource="{Binding FileField, Mode=TwoWay}"
+                    SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                    ></ComboBox>
+            </Grid>
+            
+        </DataTemplate>
+        <local:FileTypeToVisibilityConverter x:Key="FileTypeToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="0.1*"/>
+            <RowDefinition Height="0.8*"/>
+            <RowDefinition Height="0.1*"/>
+        </Grid.RowDefinitions>
+        <ComboBox
+            Visibility="{Binding FileType, Mode=TwoWay, Converter={StaticResource FileTypeToVisibilityConverter}}"
+            ItemsSource="{Binding TablesList}"
+            SelectedItem="{Binding SelectedTable, Mode=TwoWay}"
+            Grid.Row="0"
+            Height="25"
+            HorizontalAlignment="Left"
+            Width="90">
+        </ComboBox>
+        <ItemsControl
+            Grid.Row="1"
+            ItemsSource="{Binding Data, Mode=TwoWay}">
+        </ItemsControl>
+        <Button
+            Command="{Binding parseData}"
+            Grid.Row="2"
+            Height="30"
+            Width="100"
+            Content="Сохранить"></Button>
+    
+    </Grid>
+
+</Window>
