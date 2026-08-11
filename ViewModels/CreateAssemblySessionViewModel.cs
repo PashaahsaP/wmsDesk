@@ -153,6 +153,7 @@ namespace WmsDesk.ViewModels
         }
         public List<Cell> IncomeCells { get; set; } = new List<Cell>();
         public List<Cell> Cells { get; set; } = new List<Cell>();
+        public List<Cell> AllCells { get; set; } = new List<Cell>();
         public List<Barcode> Barcodes { get; set; } = new List<Barcode>();
         public bool IsSupplierSelected
         {
@@ -182,7 +183,7 @@ namespace WmsDesk.ViewModels
 
 
 
-        public CreateAssemblySessionViewModel(string catalogAndSuppliers, string suppliers, string barcodes, string outcomeCells, string batches, string cellTypes, Window window)
+        public CreateAssemblySessionViewModel(string catalogAndSuppliers, string suppliers, string barcodes, string outcomeCells, string batches, string cellTypes, Window window, string cells)
         {
             _window = window;
             Items = new ObservableCollection<IncomeItemVm>();
@@ -222,7 +223,9 @@ namespace WmsDesk.ViewModels
                 var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
                 var ip = setting["Ip"];
                 var goods = await client.GetAllGoods(ip);
-                var parsedGoods = JsonConvert.DeserializeObject<List<Goods>>(goods);
+                var parsedGoods = JsonConvert.DeserializeObject<List<Goods>>(goods).Where(item => 
+                item.isAvailable == true
+                        && !(AllCells.First(cell => cell.Id == item.cellId)).Name.Contains("IN")).ToList();
                 // Проверить что все элементы валидные
                 bool isOkElements = Items.All(inner => inner.isValid);
                 // Проверить что ячейка выбрана для приемки
@@ -253,7 +256,8 @@ namespace WmsDesk.ViewModels
                     }
                     else
                     {
-                        var totalAmount = parsedGoods.Where(inner => inner.catalogId == item.CatalogId).Sum(innerGoodsItem => innerGoodsItem.amount);
+                        var totalAmount = parsedGoods.Where(inner => 
+                        inner.catalogId == item.CatalogId ).Sum(innerGoodsItem => innerGoodsItem.amount);
                         if (totalAmount < item.Count)
                         {
                             balanceIsOk = false;
@@ -295,11 +299,11 @@ namespace WmsDesk.ViewModels
                         sessionForRequest = new AssemblySession
                         {
                             id = "",
-                            supplierId = Supplier,
+                            supplierId = SelectedSupplier.Id,
                             lines = Items.Count,
                             createdAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
                             date = Date.ToString(),
-                            outCell = SelectedCell.Name,
+                            outCell = SelectedCell.Id,
                             amount = 0,
                             status = 0
                         };
@@ -645,6 +649,12 @@ namespace WmsDesk.ViewModels
                 Cells.Add(item);
 
             }
+            var parsedCells = JsonConvert.DeserializeObject<List<Cell>>(cells);
+            foreach (var item in parsedCells)
+            {
+                AllCells.Add(item);
+
+            }
 
             Filter.Cells = Cells;
             //parse cellTypes
@@ -787,8 +797,9 @@ namespace WmsDesk.ViewModels
             var batches = await client.GetBatches(ip);
             var barcodes = await client.GetBarcodes(ip);
             var outcomeCells = await client.GetOutcomeCells(ip);
+            var cells = await client.GetCells(ip);
             var cellTypes = await client.GetCellTypes(ip);
-            return new CreateAssemblySessionViewModel(catalogAndSuppliers, suppliers, barcodes, outcomeCells, batches, cellTypes, window);
+            return new CreateAssemblySessionViewModel(catalogAndSuppliers, suppliers, barcodes, outcomeCells, batches, cellTypes, window, cells);
         }
 
 
