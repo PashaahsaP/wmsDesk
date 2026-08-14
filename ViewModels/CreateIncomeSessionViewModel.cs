@@ -25,7 +25,9 @@ namespace WmsDesk.ViewModels
         private ObservableCollection<IncomeItemVm> _borkItems = new ObservableCollection<IncomeItemVm>();
         private ObservableCollection<Supplier> _suppliers = new ObservableCollection<Supplier>();
         private ObservableCollection<IncomeItemVm> _items;
-        private Supplier _selectedSupplier;
+        private Supplier? _selectedSupplier;
+        private Cell? _selectedCell;
+
         private DateTime? _date = new DateTime?();
 
         private MainViewModel vm;
@@ -84,14 +86,21 @@ namespace WmsDesk.ViewModels
                 OnPropertyChanged(nameof(Suppliers));
             }
         }
-        public Supplier SelectedSupplier
+        public Supplier? SelectedSupplier
         {
             get
             {
                 return _selectedSupplier;
+
             }
             set
             {
+                if (value == null)
+                {
+                    _selectedSupplier = value;
+                    OnPropertyChanged(nameof(SelectedSupplier));
+                    return;
+                }
                 _selectedSupplier = value;
                 var isEnabled = Suppliers.Any(item =>
                     item.Name == value.Name
@@ -106,7 +115,23 @@ namespace WmsDesk.ViewModels
             }
         }
         public IncomeItemEntity SelectedCatalogItem { get; set; }
-        public Cell SelectedCell { get; set; }
+        public Cell SelectedCell { 
+            get
+            {
+                return _selectedCell;
+            }
+            set
+            {
+                if (value == null)
+                {
+                    _selectedCell = value;
+                    OnPropertyChanged(nameof(SelectedCell));
+                    return;
+                }
+                _selectedCell = value;
+                OnPropertyChanged(nameof(SelectedCell));
+            }
+        }
         public DateTime? Date
         {
             get
@@ -190,6 +215,15 @@ namespace WmsDesk.ViewModels
                 bool isOkElements = Items.All(inner => inner.isValid);
                 // Проверить что ячейка выбрана для приемки
                 bool isSelectedCell = SelectedCell != null;
+                bool isTeOK = Items.All(item =>
+                {
+                    if (item.TE == "")
+                        return true;
+                    if(GetCellType(item.TE, ParsedCellTypes) != null)
+                        return true;
+                    return false;
+                }
+                );
                 if (!isOkElements)
                 {
                     MessageBox.Show("Не все элементы валидны");
@@ -198,8 +232,19 @@ namespace WmsDesk.ViewModels
                 {
                     MessageBox.Show("Ячейка не выбрана");
                 }
+                if (!isTeOK)
+                {
+                    foreach (var item in Items)
+                    {
+                        if(item.TE != "" && GetCellType(item.TE, ParsedCellTypes) == null)
+                        {
+                            MessageBox.Show($"Транспортной единицы {item.TE} не существует.");
+                        }
+                    }
+                }
 
-                if (isSelectedCell && isOkElements)
+
+                if (isSelectedCell && isOkElements && isTeOK)
                 {
                     // Найти нужную ячейку приемки
                     var jsonIp = File.ReadAllText("config.json");
@@ -275,34 +320,20 @@ namespace WmsDesk.ViewModels
                             SessionId = sessionId.id
                         });
                     }
+                    var result = new List<StringID>();
                     foreach (var item in incomeItems)
                     {
-                        await client.SendIncomeItem(item, ip);
+                        result.Add( await client.SendIncomeItem(item, ip));
+                    }
+                    if (result.All(item => item != null))
+                    {
+                        MessageBox.Show("Заявка создана");
+                        Items.Clear();
+                        SelectedSupplier = null;
+                        SelectedCell = null;
+                        Date = null;
                     }
                     // Создать IncomeItem в ячейке на приемку
-                }
-
-                foreach (var item in Items)
-                {
-                    /* var func = AdapterHelper.getGoodsBalance[_supplier];
-                     var str = _supplier == 0 ? (item as AtomyItem).TE : item.Catalog.Id;
-                     Int32 count = item.Catalog != null ? await func(str, Client, ip) : 0;
-                     if (item.Catalog == null)
-                     {
-                         isGood = false;
-                     }
-                     if (item.Count > count)
-                     {
-                         isGood = false;
-                         MessageBox.Show($"{item.Name} не хватает {item.Count - count}");
-                     }*/
-                }
-                if (true)
-                {
-                    /* var func = AdapterHelper.createAssebmlySession[_supplier];
-                     await func(Client, Items, ip, Items.Sum(el => el.Count), Items.Count, _supplier);
-                     Client.CreateAssebmlySession(Items, ip, Items.Sum(el => el.Count), Items.Count, 1);//REMAKE
-                     Items = new ObservableCollection<IUiItem>();*/
                 }
             });
             loadFile = new RelayCommand(async o =>
@@ -576,7 +607,8 @@ namespace WmsDesk.ViewModels
                                {
                                    case '#':
                                        return char.IsDigit(cell.Name[x.Index]);
-
+                                   case '*':
+                                       return char.IsLetter(cell.Name[x.Index]);
                                    default:
                                        return x.MaskChar == cell.Name[x.Index];
                                }

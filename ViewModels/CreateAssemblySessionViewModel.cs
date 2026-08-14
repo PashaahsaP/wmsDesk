@@ -238,6 +238,7 @@ namespace WmsDesk.ViewModels
                     var te = item.TE != "" ? await client.GetCellIdByName(item.TE, ip) : null;
                     if (item.TE != "")
                     {
+                        //TODO как будто ошибка в плане условия и 
                         if (te != null)
                         {
                             var innerGoods = parsedGoods.Where(inner => inner.catalogId == item.CatalogId && inner.cellId == te.Id).First();
