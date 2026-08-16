@@ -261,6 +261,7 @@ namespace WmsDesk
         public ICommand callHomeWindow { get; set; }
         public ICommand moveToLeft { get; set; }
         public ICommand moveToRight { get; set; }
+
         /// <summary>
         /// Event for closing button on press X on menu item(еще есть закрытие на среднию кнопку и это события cs коде)
         /// </summary>
@@ -432,6 +433,7 @@ namespace WmsDesk
                     RightMenuItems = rightResult;
                 }
             });
+            
             #endregion
         }
         public void OnPropertyChanged(string propertyName) =>

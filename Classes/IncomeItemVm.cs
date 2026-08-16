@@ -14,6 +14,7 @@ namespace WmsDesk
         private string _te = string.Empty;
         private string _name = string.Empty;
         private string _other = string.Empty;
+        private long _updatedAt = long.MaxValue;
         private int _count = 1;
         private bool _isValid = true;
         private bool _isSelected = false;
@@ -55,6 +56,7 @@ namespace WmsDesk
                 }
             }
         }
+       
         public string Name
         {
             get => _name;
@@ -115,13 +117,26 @@ namespace WmsDesk
                 }
             }
         }
+        public long UpdatedAt
+        {
+            get => _updatedAt;
+            set
+            {
+                if (_updatedAt != value)
+                {
+                    _updatedAt = value;
+                    OnPropertyChanged(nameof(UpdatedAt));
+                }
+            }
+        }
+        
         public string Barcode { get; set; } = "";
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public override string ToString()
         {
-            return Name;
+            return $"{Name} {Sku}";
         }
         public void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

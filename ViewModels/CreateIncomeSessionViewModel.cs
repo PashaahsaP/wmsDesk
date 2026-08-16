@@ -172,16 +172,87 @@ namespace WmsDesk.ViewModels
         public ICommand loadFile { get; set; }
         public ICommand removeLine { get; set; }
         public ICommand pressEnterInTb { get; set; }
-
+        public ICommand refreshCommand { get; }
 
 
         public CreateIncomeSessionViewModel(string catalogAndSuppliers, string suppliers, string barcodes, string incomeCells, string batches, string cellTypes, Window window)
         {
             _window = window;
             Items = new ObservableCollection<IncomeItemVm>();
+
             selectAtomy = new RelayCommand(o =>
             {
                 _supplier = 0;
+            });
+            refreshCommand = new RelayCommand(async o => {
+                var jsonIp = File.ReadAllText("config.json");
+                var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
+                var ip = setting["Ip"];
+
+                var lastTime = CatalogData.Max(item => item.UpdatedAt);
+                var result = await client.GetAllCatalogsWithSuppliers(ip, lastTime);
+                var parsedResult = JsonConvert.DeserializeObject<ObservableCollection<IncomeItemEntity>>(result);
+                IncomeItemEntity temp = new IncomeItemEntity();
+
+                foreach (var item in parsedResult)
+                {
+
+                    var sup = Suppliers.FirstOrDefault(inner => inner.Id == item.SupplierId);
+                    if (Enum.IsDefined(typeof(ClientType), sup.SupplierType))
+                    {
+                        ClientType currentStatus = (ClientType)sup.SupplierType;
+
+                        switch (currentStatus)
+                        {
+                            case ClientType.Base:
+                                temp = new IncomeItemEntity()
+                                {
+                                    Name = item.Name,
+                                    Sku = item.Sku,
+                                    CatalogId = item.CatalogId,
+                                    SupplierId = sup.Id,
+                                    SupplierName = sup.Name,
+                                    UpdatedAt = item.UpdatedAt,
+                                    Other = item.Other
+                                };
+                                break;
+                            case ClientType.WithDate:
+                                temp = new IncomeItemWithDateEntity()
+                                {
+                                    Name = item.Name,
+                                    Sku = item.Sku,
+                                    CatalogId = item.CatalogId,
+                                    SupplierId = sup.Id,
+                                    SupplierName = sup.Name,
+                                    UpdatedAt = item.UpdatedAt,
+                                    Other = item.Other,
+                                    Date = "10.10.2024"
+                                };
+                                break;
+                            case ClientType.WithBatch:
+                                temp = new IncomeItemWithBatchEntity()
+                                {
+                                    Name = item.Name,
+                                    Sku = item.Sku,
+                                    CatalogId = item.CatalogId,
+                                    SupplierId = sup.Id,
+                                    UpdatedAt = item.UpdatedAt,
+                                    SupplierName = sup.Name,
+                                    Other = item.Other,
+                                    Batches = "234"
+                                };
+                                break;
+                        }
+                    }
+
+                    CatalogData.Add(temp);
+                    CatalogItems.Add(temp.ToVm());
+
+                }
+                Filter.Items = CatalogData.ToList();
+                Filter.Sort = _tbText;
+                _borkItems = Filter.Apply();
+                OnPropertyChanged(nameof(CatalogItems));
             });
             selectBork = new RelayCommand(o =>
             {
@@ -238,7 +309,7 @@ namespace WmsDesk.ViewModels
                     {
                         if(item.TE != "" && GetCellType(item.TE, ParsedCellTypes) == null)
                         {
-                            MessageBox.Show($"Транспортной единицы {item.TE} не существует.");
+                            MessageBox.Show($"Транспортной единицы {item.TE} такого формата не существует.");
                         }
                     }
                 }
@@ -365,10 +436,10 @@ namespace WmsDesk.ViewModels
                         foreach (var item in innerDialog.Result)
                         {
                             isValid = false;
-                            if (Items.Any(inner => inner.Sku == item.Sku))
+                            if (CatalogItems.Any(inner => inner.Sku == item.Sku))
                             {
                                 isValid = true;
-                                item.CatalogId = Items.FirstOrDefault(inner => inner.Sku == item.Sku).CatalogId;
+                                item.CatalogId = CatalogItems.FirstOrDefault(inner => inner.Sku == item.Sku).CatalogId;
                             }
                             if (Barcodes.Any(inner => inner.Name == item.Name))
                             {
@@ -536,6 +607,7 @@ namespace WmsDesk.ViewModels
                                 CatalogId = item.CatalogId,
                                 SupplierId = sup.Id,
                                 SupplierName = sup.Name,
+                                UpdatedAt = item.UpdatedAt,
                                 Other = item.Other
                             };
                             break;
@@ -547,6 +619,7 @@ namespace WmsDesk.ViewModels
                                 CatalogId = item.CatalogId,
                                 SupplierId = sup.Id,
                                 SupplierName = sup.Name,
+                                UpdatedAt = item.UpdatedAt,
                                 Other = item.Other,
                                 Date = "10.10.2024"
                             };
@@ -558,6 +631,7 @@ namespace WmsDesk.ViewModels
                                 Sku = item.Sku,
                                 CatalogId = item.CatalogId,
                                 SupplierId = sup.Id,
+                                UpdatedAt = item.UpdatedAt,
                                 SupplierName = sup.Name,
                                 Other = item.Other,
                                 Batches = "234"
@@ -649,7 +723,7 @@ namespace WmsDesk.ViewModels
             var jsonIp = File.ReadAllText("config.json");
             var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
             var ip = setting["Ip"];
-            var catalogAndSuppliers = await client.GetAllCatalogsWithSuppliers(ip);
+            var catalogAndSuppliers = await client.GetAllCatalogsWithSuppliers(ip, 0);
             var suppliers = await client.GetSuppliers(ip);
             var batches = await client.GetBatches(ip);
             var barcodes = await client.GetBarcodes(ip);

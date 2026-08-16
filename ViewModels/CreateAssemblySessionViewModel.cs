@@ -793,7 +793,7 @@ namespace WmsDesk.ViewModels
             var jsonIp = File.ReadAllText("config.json");
             var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
             var ip = setting["Ip"];
-            var catalogAndSuppliers = await client.GetAllCatalogsWithSuppliers(ip);
+            var catalogAndSuppliers = await client.GetAllCatalogsWithSuppliers(ip, 0);
             var suppliers = await client.GetSuppliers(ip);
             var batches = await client.GetBatches(ip);
             var barcodes = await client.GetBarcodes(ip);

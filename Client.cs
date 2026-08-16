@@ -449,12 +449,12 @@ namespace WmsDesk
 
             return barcodeId;
         }
-        internal async Task<string> GetAllCatalogsWithSuppliers(string ip)
+        internal async Task<string> GetAllCatalogsWithSuppliers(string ip, long time)
         {
             var result = "";
             try
             {
-                var response = await client.GetAsync($"http://{ip}:3000/catalogsAndSuppliers/0");
+                var response = await client.GetAsync($"http://{ip}:3000/catalogsAndSuppliers/{time}");
                 response.EnsureSuccessStatusCode();
                 string data = await response.Content.ReadAsStringAsync();
                 result = data;

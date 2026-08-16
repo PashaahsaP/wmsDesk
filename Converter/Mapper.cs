@@ -19,6 +19,7 @@ namespace WmsDesk.Converter
                     Name = item.Name,
                     Other = item.Other,
                     Sku = item.Sku,
+                    UpdatedAt = item.UpdatedAt,
                     Date = DateTime.ParseExact((item as IncomeItemWithDateEntity).Date, "dd.MM.yyyy", CultureInfo.InvariantCulture),
                     TE = "345"
 
@@ -32,6 +33,7 @@ namespace WmsDesk.Converter
                     Name = item.Name,
                     Other = item.Other,
                     Sku = item.Sku,
+                    UpdatedAt = item.UpdatedAt,
                     Batches = (item as IncomeItemWithBatchEntity).Batches,
                     TE = "345"
                     
@@ -45,6 +47,7 @@ namespace WmsDesk.Converter
                     Name = item.Name,
                     Other = item.Other,
                     Sku = item.Sku,
+                    UpdatedAt = item.UpdatedAt,
                     TE = "345",
                 };
             }

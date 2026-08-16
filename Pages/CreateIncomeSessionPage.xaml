@@ -8,11 +8,15 @@
       mc:Ignorable="d" 
       d:DesignHeight="450" d:DesignWidth="800"
       Title="CreateSessionPage">
+    <Page.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding refreshCommand}" />
+    </Page.InputBindings>
+    
     <Page.Resources>
 
         <local:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter" />
         <local:CatalogToBackgroundColorConverter x:Key="CatalogToBackgroundColorConverter"/>
-
+       
         <DataTemplate DataType="{x:Type local:IncomeItemVm}">
             <Border
                 Margin="0 0 5 0"

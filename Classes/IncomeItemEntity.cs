@@ -15,6 +15,7 @@ namespace WmsDesk.Classes
         public string SupplierName { get; set; } = string.Empty;
         public string Sku { get; set; } = string.Empty;
         public string Other { get; set; } = string.Empty;
+        public long UpdatedAt { get; set; } = long.MaxValue;
         public override string ToString()
         {
             return Name;

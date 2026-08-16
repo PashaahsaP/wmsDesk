@@ -632,7 +632,7 @@ namespace WmsDesk.ViewModels
             var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
             ip = setting["Ip"];
             var batches = await client.GetBatches(ip);
-            var data = await client.GetAllCatalogsWithSuppliers(ip);
+            var data = await client.GetAllCatalogsWithSuppliers(ip, 0);
             var suppliers = await client.GetSuppliers(ip);
             var barcodes = await client.GetBarcodes(ip);
             return new AddingCatalogViewModel(data, suppliers, barcodes, batches);
