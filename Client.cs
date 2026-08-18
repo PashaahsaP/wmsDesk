@@ -18,18 +18,22 @@ using WmsDesk.ViewModels;
 
 namespace WmsDesk
 {
+    record Result(bool success);
     public class Client
     {
         private readonly HttpClient client = new HttpClient();
-        internal async Task<bool> CreateAssebmlySession(AssemblySession session, List<Goods> goods, List<SessionItem> incomeItems,  string ip)
+        
+        internal async Task<Result> CreateAssebmlySession(AssemblySession session, List<Goods> goods, List<Goods> updateGoods, List<SessionItem> incomeItems,  string ip)
         {
-            bool result = false;
+
+            Result result;
             try
             {
                 var payload = new
                 {
                     session = session,
                     goods = goods,
+                    goodsForUpdate = updateGoods,
                     incomeItems = incomeItems,
                 };                
                 var json = JsonConvert.SerializeObject(payload);
@@ -37,7 +41,7 @@ namespace WmsDesk
                 var response = await client.PostAsync($"http://{ip}:3000/assembly_session/pc", content);
                 response.EnsureSuccessStatusCode();
                 string data = await response.Content.ReadAsStringAsync();
-                result = JsonConvert.DeserializeObject<bool>(data);
+                result = JsonConvert.DeserializeObject<Result>(data);
             }
             catch (Exception ex)
             {

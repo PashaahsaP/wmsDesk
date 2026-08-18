@@ -219,6 +219,7 @@ namespace WmsDesk.ViewModels
             });
             createSession = new RelayCommand(async o =>
             {
+                #region init var
                 var jsonIp = File.ReadAllText("config.json");
                 var setting = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonIp);
                 var ip = setting["Ip"];
@@ -226,6 +227,8 @@ namespace WmsDesk.ViewModels
                 var parsedGoods = JsonConvert.DeserializeObject<List<Goods>>(goods).Where(item => 
                 item.isAvailable == true
                         && !(AllCells.First(cell => cell.Id == item.cellId)).Name.Contains("IN")).ToList();
+                #endregion
+                #region check valid of items
                 // Проверить что все элементы валидные
                 bool isOkElements = Items.All(inner => inner.isValid);
                 // Проверить что ячейка выбрана для приемки
@@ -282,21 +285,21 @@ namespace WmsDesk.ViewModels
                         MessageBox.Show(message);
                     }
                 }
+                #endregion
                 if (isSelectedCell && isOkElements && balanceIsOk)
                 {
-
+                    #region init var
                     var sessionForRequest = new AssemblySession();
                     var goodsForRequest = new List<Goods>();
+                    var updateGoods = new List<Goods>();
                     var itemsForRequest = new List<SessionItem>();
                     // Найти нужную ячейку отгрузки
                     var cell = await client.GetCellIdByName(SelectedCell.Name, ip);
-
-                    // Создать заявку на сборку
-                    // Создать assembly item, отделить goods и заблокировать
+                    #endregion
 
                     try
                     {
-                        // 1. Создаем заявку на сборку
+                        #region create assembly session
                         sessionForRequest = new AssemblySession
                         {
                             id = "",
@@ -308,164 +311,18 @@ namespace WmsDesk.ViewModels
                             amount = 0,
                             status = 0
                         };
+                        #endregion
+                        #region get goods and assembly items
+                        var tasks = new List<Task>();
                         foreach (var collItem in Items)
                         {
-                            // Находим исходный товар на остатке в ячейке
-                            if (collItem.TE != "")
-                            {
-                                var te = await client.GetCellIdByName(collItem.TE, ip);
-                                var goodsInTE = parsedGoods.First(inner => inner.cellId == te.Id);
-                                if (goodsInTE.amount == collItem.Count)
-                                {
-                                    //обновить goods и создать assembly item
-                                    var newGoods = goodsInTE.CloneGoods();
-                                    newGoods.isAvailable = false;//TODO передать в client
-                                    var newAssemblyItem = new SessionItem(
-                                        "",
-                                        sessionForRequest.id,
-                                        goodsInTE.id,
-                                        goodsInTE.cellId,
-                                        (int)StatusType.Created,
-                                        0,
-                                        0,
-                                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                    goodsForRequest.Add(newGoods);
-                                    itemsForRequest.Add(newAssemblyItem);
-                                    parsedGoods.Remove(goodsInTE);//local update
-                                }
-                                else
-                                {
-                                    var prevGoods = goodsInTE.CloneGoods();
-                                    var newGoods = goodsInTE.CloneGoods();
-                                    prevGoods.amount = prevGoods.amount - collItem.Count;
-                                    newGoods.isAvailable = false;
-                                    newGoods.id = "";
-                                    newGoods.amount = collItem.Count;
-                                    var newAssemblyItem = new SessionItem(
-                                        "",
-                                        sessionForRequest.id,
-                                        newGoods.id,
-                                        newGoods.cellId,
-                                        (int)StatusType.Created,
-                                        0,
-                                        0,
-                                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                    goodsForRequest.Add(prevGoods);
-                                    goodsForRequest.Add(newGoods);
-                                    itemsForRequest.Add(newAssemblyItem);
-                                    goodsInTE.amount = goodsInTE.amount - collItem.Count;//local update
-                                }
-                            }
-                            else
-                            {
-                                //найти goods и разделить если надо количество
-                                var equalItem = parsedGoods.First(item => item.amount == collItem.Count);
-                                if (equalItem != null)
-                                {
-                                    //обновить goods и создать assembly item
-                                    var newGoods = equalItem.CloneGoods();
-                                    newGoods.isAvailable = false;//TODO передать в client
-                                    var newAssemblyItem = new SessionItem(
-                                        "",
-                                        sessionForRequest.id,
-                                        equalItem.id,
-                                        equalItem.cellId,
-                                        (int)StatusType.Created,
-                                        0,
-                                        0,
-                                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                    goodsForRequest.Add(newGoods);
-                                    itemsForRequest.Add(newAssemblyItem);
-                                    parsedGoods.Remove(equalItem);
-                                }
-                                else
-                                {
-                                    var localCounter = collItem.Count;
-                                    //надо брать в которых количество меньше и уменьшать остаток
-                                    foreach (var item in parsedGoods.OrderBy(inner => inner.amount))
-                                    {
-                                        if (item.amount < localCounter)
-                                        {
-                                            // goods текущий обновить и создать assemblyItem
-                                            //обновить goods и создать assembly item
-                                            var newGoods = item.CloneGoods();
-                                            newGoods.isAvailable = false;//TODO передать в client
-                                            var newAssemblyItem = new SessionItem(
-                                                "",
-                                                sessionForRequest.id,
-                                                newGoods.id,
-                                                newGoods.cellId,
-                                                (int)StatusType.Created,
-                                                0,
-                                                0,
-                                                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                            goodsForRequest.Add(newGoods);
-                                            itemsForRequest.Add(newAssemblyItem);
-                                            localCounter -= item.amount;
-                                            parsedGoods.Remove(item);
-                                        }
-                                        else
-                                        {
-                                            break;
-                                        }
-                                        if (localCounter == 0)
-                                            break;
-                                    }
-                                    //если нет элементов у которых есть меньшее количество то элемент с большим количеством и его изменить
-                                    Goods moreItemCount = null;
-                                    moreItemCount = parsedGoods.First(item => item.amount == localCounter);
-                                    if (moreItemCount == null)
-                                    {
-                                        moreItemCount = parsedGoods.First(item => item.amount > localCounter);
-                                        var newGoods = moreItemCount.CloneGoods();
-                                        newGoods.isAvailable = false;//TODO передать в client
-                                        var newAssemblyItem = new SessionItem(
-                                            "",
-                                            sessionForRequest.id,
-                                            equalItem.id,
-                                            equalItem.cellId,
-                                            (int)StatusType.Created,
-                                            0,
-                                            0,
-                                            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                        goodsForRequest.Add(newGoods);
-                                        itemsForRequest.Add(newAssemblyItem);
-                                        parsedGoods.Remove(equalItem);
-                                    }
-                                    else
-                                    {
-                                        var prevGoods = moreItemCount.CloneGoods();
-                                        var newGoods = moreItemCount.CloneGoods();
-                                        prevGoods.amount = prevGoods.amount - collItem.Count;
-                                        newGoods.isAvailable = false;
-                                        newGoods.id = "";
-                                        newGoods.amount = collItem.Count;
-                                        var newAssemblyItem = new SessionItem(
-                                            "",
-                                            sessionForRequest.id,
-                                            newGoods.id,
-                                            newGoods.cellId,
-                                            (int)StatusType.Created,
-                                            0,
-                                            0,
-                                            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-                                        goodsForRequest.Add(prevGoods);
-                                        goodsForRequest.Add(newGoods);
-                                        itemsForRequest.Add(newAssemblyItem);
-                                        moreItemCount.amount = moreItemCount.amount - collItem.Count;//local update
-                                    }
-
-
-
-                                }
-
-
-                            }
+                            CreateGoodsAndAssemblyItem(ip, parsedGoods, sessionForRequest, goodsForRequest, updateGoods, itemsForRequest, collItem);
 
                         }
-
+                        await Task.WhenAll(tasks);
+                        #endregion
                         //TODO Отправить все данные на сервер
-                        await client.CreateAssebmlySession(sessionForRequest, goodsForRequest, itemsForRequest, ip);
+                        await client.CreateAssebmlySession(sessionForRequest, goodsForRequest, updateGoods, itemsForRequest, ip);
                     }
                     catch (Exception ex)
                     {
@@ -734,6 +591,168 @@ namespace WmsDesk.ViewModels
                 Batches.Add(item);
             }
 
+        }
+
+        private  async static void CreateGoodsAndAssemblyItem(string ip, List<Goods> parsedGoods, AssemblySession sessionForRequest, List<Goods> goodsForRequest, List<Goods> updateGoods, List<SessionItem> itemsForRequest, IncomeItemVm collItem)
+        {
+            // Если товар идет с te
+            // Находим исходный товар на остатке в ячейке
+            if (collItem.TE != "")
+            {
+                var te = await client.GetCellIdByName(collItem.TE, ip);
+                var goodsInTE = parsedGoods.First(inner => inner.cellId == te.Id);
+                if (goodsInTE.amount == collItem.Count)
+                {
+                    //обновить goods и создать assembly item
+                    var newGoods = goodsInTE.CloneGoods();
+                    newGoods.isAvailable = false;//TODO передать в client
+                    var newAssemblyItem = new SessionItem(
+                        "",
+                        sessionForRequest.id,
+                        goodsInTE.id,
+                        goodsInTE.cellId,
+                        (int)StatusType.Created,
+                        0,
+                        0,
+                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    updateGoods.Add(newGoods);
+                    itemsForRequest.Add(newAssemblyItem);
+                    parsedGoods.Remove(goodsInTE);//local update
+                }
+                else
+                {
+                    var prevGoods = goodsInTE.CloneGoods();
+                    var newGoods = goodsInTE.CloneGoods();
+                    prevGoods.amount = prevGoods.amount - collItem.Count;
+                    newGoods.isAvailable = false;
+                    newGoods.id = Guid.NewGuid().ToString();
+                    newGoods.amount = collItem.Count;
+                    var newAssemblyItem = new SessionItem(
+                        "",
+                        sessionForRequest.id,
+                        newGoods.id,
+                        newGoods.cellId,
+                        (int)StatusType.Created,
+                        0,
+                        0,
+                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    updateGoods.Add(prevGoods);
+                    goodsForRequest.Add(newGoods);
+                    itemsForRequest.Add(newAssemblyItem);
+                    goodsInTE.amount = goodsInTE.amount - collItem.Count;//local update
+                }
+            }
+            // Если просто товар
+            else
+            {
+                //найти goods у которого количество равно необходимому. Это нужно чтобы минусовать ячейку и совершить минимум действий.
+                var equalItem = parsedGoods.FirstOrDefault(item => item.amount == collItem.Count);
+                if (equalItem != null)
+                {
+                    //обновить goods и создать assembly item
+                    var newGoods = equalItem.CloneGoods();
+                    newGoods.isAvailable = false;//TODO передать в client
+                    var newAssemblyItem = new SessionItem(
+                        "",
+                        sessionForRequest.id,
+                        newGoods.id,
+                        newGoods.cellId,
+                        (int)StatusType.Created,
+                        0,
+                        0,
+                        DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    updateGoods.Add(newGoods);
+                    itemsForRequest.Add(newAssemblyItem);
+                    parsedGoods.Remove(equalItem);
+                }
+                // Если goods с равным количеством не найден то надо искать с меньшим количеством чтобы минусовать по максимум ячейки, и в конце надо взять из равного количества или большего.
+                else
+                {
+                    var localCounter = collItem.Count;
+                    //надо брать в которых количество меньше и уменьшать остаток
+                    foreach (var item in parsedGoods.OrderBy(inner => inner.amount))
+                    {
+                        if (item.amount < localCounter)
+                        {
+                            // goods текущий обновить и создать assemblyItem
+                            //обновить goods и создать assembly item
+                            var newGoods = item.CloneGoods();
+                            newGoods.isAvailable = false;//TODO передать в client
+                            var newAssemblyItem = new SessionItem(
+                                "",
+                                sessionForRequest.id,
+                                newGoods.id,
+                                newGoods.cellId,
+                                (int)StatusType.Created,
+                                0,
+                                0,
+                                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                            updateGoods.Add(newGoods);
+                            itemsForRequest.Add(newAssemblyItem);
+                            localCounter -= item.amount;
+                            parsedGoods.Remove(item);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                        if (localCounter == 0)
+                            break;
+                    }
+                    //если нет элементов у которых есть меньшее количество то надо опять найти товар с равным количеством(чтобы минуснуть ячейку) если его нет то брать в ячейке где количество больше
+                    Goods moreItemCount = null;
+                    moreItemCount = parsedGoods.FirstOrDefault(item => item.amount == localCounter);
+                    if (moreItemCount != null)
+                    {
+                        //TODO надо сделать обновление goods в базе
+                        // создать новые goods и обновить старые
+                        // получается это только когда больше. В случае когда меньше или равно то надо просто изменить доступность
+                        moreItemCount = parsedGoods.First(item => item.amount > localCounter);
+                        var newGoods = moreItemCount.CloneGoods();
+                        newGoods.isAvailable = false;//TODO передать в client
+                        var newAssemblyItem = new SessionItem(
+                            "",
+                            sessionForRequest.id,
+                            moreItemCount.id,
+                            moreItemCount.cellId,
+                            (int)StatusType.Created,
+                            0,
+                            0,
+                            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                        updateGoods.Add(newGoods);
+                        itemsForRequest.Add(newAssemblyItem);
+                        parsedGoods.Remove(equalItem);
+                    }
+                    else
+                    {
+                        moreItemCount = parsedGoods.FirstOrDefault(item => item.amount > localCounter);
+                        var prevGoods = moreItemCount.CloneGoods();
+                        var newGoods = moreItemCount.CloneGoods();
+                        prevGoods.amount = prevGoods.amount - collItem.Count;
+                        newGoods.isAvailable = false;
+                        newGoods.id = Guid.NewGuid().ToString();
+                        newGoods.amount = collItem.Count;
+                        var newAssemblyItem = new SessionItem(
+                            "",
+                            sessionForRequest.id,
+                            newGoods.id,
+                            newGoods.cellId,
+                            (int)StatusType.Created,
+                            0,
+                            0,
+                            DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                        updateGoods.Add(prevGoods);
+                        goodsForRequest.Add(newGoods);
+                        itemsForRequest.Add(newAssemblyItem);
+                        moreItemCount.amount = moreItemCount.amount - collItem.Count;//local update
+                    }
+
+
+
+                }
+
+
+            }
         }
 
         private bool IsTE(Cell cell, List<CellTypes> list)
