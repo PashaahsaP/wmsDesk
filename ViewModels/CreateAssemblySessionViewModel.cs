@@ -225,9 +225,11 @@ namespace WmsDesk.ViewModels
                 var ip = setting["Ip"];
                 var goods = await client.GetAllGoods(ip);
                 var pickerType = ParsedCellTypes.Where(inner => inner.Type == "picker").Select(item => item.Id);
+                var incomeType = ParsedCellTypes.Where(inner => inner.Type == "income").Select(item => item.Id);
                 var teType = ParsedCellTypes.Where(inner => inner.Type == "te").Select(item => item.Id);
-                var pickerCells = AllCells.Where(inner => pickerType.Contains(inner.TypeCellId));
-                var teCells = AllCells.Where(inner => teType.Contains(inner.TypeCellId));
+                var incomeCells = AllCells.Where(inner => incomeType.Contains(inner.TypeCellId)).ToList();
+                var pickerCells = AllCells.Where(inner => pickerType.Contains(inner.TypeCellId)).Where(x=> !incomeCells.Any(income => income.Id == x.ParentCellId));
+                var teCells = AllCells.Where(inner => teType.Contains(inner.TypeCellId)).Where(x => !incomeCells.Any(income => income.Id == x.ParentCellId));
                 var parsedGoods = JsonConvert.DeserializeObject<List<Goods>>(goods).Where(item => 
                 item.isAvailable == true
                         && !(AllCells.First(cell => cell.Id == item.cellId)).Name.Contains("IN")).ToList();
@@ -320,7 +322,7 @@ namespace WmsDesk.ViewModels
                         var tasks = new List<Task>();
                         foreach (var collItem in Items)
                         {
-                            await CreateGoodsAndAssemblyItem(ip, parsedGoods, sessionForRequest, goodsForRequest, updateGoods, itemsForRequest, collItem, pickerCells, teCells);
+                            await CreateGoodsAndAssemblyItem(ip, parsedGoods, sessionForRequest, goodsForRequest, updateGoods, itemsForRequest, collItem, pickerCells.ToList(), teCells.ToList());
 
                         }
                         #endregion
@@ -605,8 +607,8 @@ namespace WmsDesk.ViewModels
             List<Goods> updateGoods, 
             List<SessionItem> itemsForRequest, 
             IncomeItemVm collItem,
-            IEnumerable<Cell> pickerCells,
-            IEnumerable<Cell> teCells)
+            List<Cell> pickerCells,
+            List<Cell> teCells)
         {
             
             // Если товар идет с te
@@ -659,8 +661,8 @@ namespace WmsDesk.ViewModels
             // Если просто товар
             else
             {
-                var goodsWithoutTeCells = parsedGoods.Where(inner => pickerCells.Select(inner => inner.Id).ToList().Contains(inner.cellId));
-                var goodsWithTeCells = parsedGoods.Where(inner => teCells.Select(inner => inner.Id).ToList().Contains(inner.cellId));
+                var goodsWithoutTeCells = parsedGoods.Where(inner => pickerCells.Select(inner => inner.Id).ToList().Contains(inner.cellId)).ToList();
+                var goodsWithTeCells = parsedGoods.Where(inner => teCells.Select(inner => inner.Id).ToList().Contains(inner.cellId)).ToList();
                 var localCounter = collItem.Count;
                 localCounter = CreateIncomeItemsAndUpdateGoods(goodsWithoutTeCells.ToList(), sessionForRequest, goodsForRequest, updateGoods, itemsForRequest, collItem, localCounter);
                 if(localCounter != 0)
